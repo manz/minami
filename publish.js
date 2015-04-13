@@ -287,36 +287,68 @@ function attachModuleSymbols(doclets, modules) {
     });
 }
 
+
+
 function buildMemberNav(items, itemHeading, itemsSeen, linktoFn) {
     var nav = '';
 
+    function generateNav(item) {
+        var methods = find({kind: 'function', memberof: item.longname});
+        var members = find({kind: 'member', memberof: item.longname});
+
+        if (!hasOwnProp.call(item, 'longname')) {
+            itemsNav += '<li>' + linktoFn('', item.name);
+            itemsNav += '</li>';
+        } else if (!hasOwnProp.call(itemsSeen, item.longname)) {
+            itemsNav += '<li>' + linktoFn(item.longname, item.name.replace(/^module:/, ''));
+            if (methods.length) {
+                itemsNav += "<ul class='methods'>";
+
+                methods.forEach(function (method) {
+                    itemsNav += "<li data-type='method'>";
+                    itemsNav += linkto(method.longname, method.name);
+                    itemsNav += "</li>";
+                });
+
+                itemsNav += "</ul>";
+            }
+            itemsNav += '</li>';
+            itemsSeen[item.longname] = true;
+        }
+
+    }
     if (items.length) {
         var itemsNav = '';
+        var prefixes = null;
+        var mapping = null;
 
-        items.forEach(function(item) {
-            var methods = find({kind:'function', memberof: item.longname});
-            var members = find({kind:'member', memberof: item.longname});
-
-            if ( !hasOwnProp.call(item, 'longname') ) {
-                itemsNav += '<li>' + linktoFn('', item.name);
-                itemsNav += '</li>';
-            } else if ( !hasOwnProp.call(itemsSeen, item.longname) ) {
-                itemsNav += '<li>' + linktoFn(item.longname, item.name.replace(/^module:/, ''));
-                if (methods.length) {
-                    itemsNav += "<ul class='methods'>";
-
-                    methods.forEach(function (method) {
-                        itemsNav += "<li data-type='method'>";
-                        itemsNav += linkto(method.longname, method.name);
-                        itemsNav += "</li>";
-                    });
-
-                    itemsNav += "</ul>";
+        if (itemHeading === 'Classes') {
+            prefixes = [];
+            mapping = {};
+            items.forEach(function (item) {
+                var prefixData = item.longname.split('.');
+                prefixData.pop();
+                var prefix = prefixData.join('.');
+                if (prefixes.indexOf(prefix) >= 0) {
+                    mapping[prefix].push(item);
                 }
-                itemsNav += '</li>';
-                itemsSeen[item.longname] = true;
-            }
-        });
+                else {
+                    mapping[prefix] = [item];
+                    prefixes.push(prefix);
+                }
+
+            });
+            prefixes.sort();
+
+            prefixes.forEach(function(prefix) {
+                itemsNav += '<h3>' + prefix + '</h3>';
+                items = mapping[prefix];
+                items.forEach(generateNav);
+            });
+        }
+        else {
+            items.forEach(generateNav);
+        }
 
         if (itemsNav !== '') {
             nav += '<h3>' + itemHeading + '</h3><ul>' + itemsNav + '</ul>';
